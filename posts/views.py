@@ -1,5 +1,6 @@
 
-from rest_framework import permissions
+from rest_framework import permissions, filters
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.generics import  ListCreateAPIView, RetrieveDestroyAPIView, CreateAPIView,ListAPIView, RetrieveUpdateDestroyAPIView
 from .serializers import CategorySerializer, CommentSerializer, PostSerializer, TagSerializer
 from .models import Category, Tag, Comment, Post
@@ -52,6 +53,26 @@ class ListCreatePost(ListCreateAPIView):
     serializer_class = PostSerializer
     queryset = Post.objects.all()
     permission_classes = [IsAuthorOrReadOnly]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+
+    filterset_fields = [
+        "author",
+
+    ]
+    search_fields = [
+        "author__first_name",
+        "author__last_name",
+        "title",
+        "category__name",
+    ]
+    oerdering_fields = [
+        "created_at",
+
+    ]
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 

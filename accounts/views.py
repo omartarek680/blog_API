@@ -1,11 +1,15 @@
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework import status
-from .serializers import RegisterSerializer, LoginSerialzer, ProfileSerializer, ChangePasswordSerializer
+from .serializers import RegisterSerializer, LoginSerialzer, ProfileSerializer, ChangePasswordSerializer, RequestResetSerializer, ConfirmResetSerializer
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import RetrieveUpdateAPIView
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes
+from django.contrib.auth.models import User
 # Create your views here.
 @api_view(["POST"])
 def register(request):
@@ -63,3 +67,60 @@ class ChangePassword(APIView):
             return Response({"message": "Password Changed"}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+class RequestResetPassword(APIView):
+
+    def post(self,request):
+        serializer = RequestResetSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+        user = User.objects.get(email=email)
+
+        uid = urlsafe_base64_encode(force_bytes(user.id))
+        token = default_token_generator.make_token(user)
+        reset_link = f"http://localhost:3000/reset/{uid}/{token}/"
+        print(reset_link)
+
+        return Response({"message": "Reset link sent"})
+
+class ConfirmResetView(APIView):
+
+    def post(self, request, uidb64, token):
+        serializer = ConfirmResetSerializer(data=request.data)
+
+        if serializer.is_valid():
+            try:
+                uid = urlsafe_base64_decode(uidb64).decode()
+                user = User.objects.get(id=uid)
+            except:
+                return Response({"error": "Invalid UID"})
+
+            if not default_token_generator.check_token(user, token):
+                return Response({"error": "Invalid token"})
+
+            user.set_password(serializer.validated_data['password'])
+            user.save()
+
+            return Response({"message": "Password reset successful"})
+
+        return Response(serializer.errors)
+    def post(self,request):
+        serializer = ConfirmResetSerializer(data=request.data)
+
+        if serializer.is_valid():
+            try:
+                uidb64 = serializer.validated_data['uidb64']
+                token = serializer.validated_data['token']
+                uid = urlsafe_base64_decode(uidb64).decode()
+                user = User.objects.get(id=uid)
+            except:
+                return Response({"error": "Invalid UID"})           
+            
+            if not default_token_generator.check_token(user, token):
+                return Response({"error": "Invalid token"})
+            
+            user.set_password(serializer.validated_data['password'])
+            user.save()
+
+            return Response({"message": "Password reset successful"})
+
+        return Response(serializer.errors)

@@ -1,6 +1,5 @@
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, get_user_model
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework.exceptions import AuthenticationFailed
 User = get_user_model()
@@ -84,5 +83,16 @@ class ChangePasswordSerializer(serializers.Serializer):
         user.save()
 
         return user
+    
+class RequestResetSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self,val):
+        if not User.objects.get(email=self.email):
+            raise serializers.ValidationError("Wrong Email")
+        
+        return val
 
         
+class ConfirmResetSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True)
