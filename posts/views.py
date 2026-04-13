@@ -1,17 +1,19 @@
-
 from rest_framework import permissions, filters
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.generics import  ListCreateAPIView, RetrieveDestroyAPIView, CreateAPIView,ListAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.generics import (
+    ListCreateAPIView, 
+    RetrieveUpdateDestroyAPIView, 
+    CreateAPIView, 
+    ListAPIView
+)
 from .serializers import CategorySerializer, CommentSerializer, PostSerializer, TagSerializer
 from .models import Category, Tag, Comment, Post
 from .permissions import IsAuthorOrReadOnly
-from django.shortcuts import get_object_or_404
-
 
 class ListCreateTag(ListCreateAPIView):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
 class CreateComment(CreateAPIView):
     serializer_class = CommentSerializer
@@ -19,66 +21,35 @@ class CreateComment(CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def perform_create(self, serializer):
-   
         serializer.save(author=self.request.user)
 
 class ListComments(ListAPIView):
     serializer_class = CommentSerializer
     permission_classes = [permissions.IsAuthenticated]
+
     def get_queryset(self):
-        
+        # Only shows comments made by the logged-in user
         return Comment.objects.filter(author=self.request.user)
-    
 
 class RetrieveUpdateDestroyComment(RetrieveUpdateDestroyAPIView):
     serializer_class = CommentSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAuthorOrReadOnly]
     queryset = Comment.objects.all()
-
-
-class ListPosts(ListAPIView):
-    serializer_class = PostSerializer
-    queryset = Post.objects.all()
-
-class CreatePost(CreateAPIView):
-  
-    serializer_class = PostSerializer
-    queryset = Post.objects.all()
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
 
 class ListCreatePost(ListCreateAPIView):
     serializer_class = PostSerializer
     queryset = Post.objects.all()
-    permission_classes = [IsAuthorOrReadOnly]
-    filter_backends = [
-        DjangoFilterBackend,
-        filters.SearchFilter,
-        filters.OrderingFilter,
-    ]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    
+    filterset_fields = ["author", "category"] # Added category filter
+    search_fields = ["author__first_name", "author__last_name", "title", "category__name"]
+    ordering_fields = ["created_at"] # Fixed typo
 
-    filterset_fields = [
-        "author",
-
-    ]
-    search_fields = [
-        "author__first_name",
-        "author__last_name",
-        "title",
-        "category__name",
-    ]
-    oerdering_fields = [
-        "created_at",
-
-    ]
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
 class RetrieveUpdateDestroyPost(RetrieveUpdateDestroyAPIView):
     serializer_class = PostSerializer
     queryset = Post.objects.all()
-    permission_classes = [IsAuthorOrReadOnly]
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
